@@ -416,6 +416,7 @@ export default class ToolboxStore {
 
                             if (definition instanceof Array) {
                                 definition.forEach(def => {
+                                    if (!def || typeof def !== 'object') return;
                                     const definition_strings = JSON.stringify(def).toUpperCase();
 
                                     if (
@@ -435,7 +436,9 @@ export default class ToolboxStore {
                         const matched_meta = Object.keys(block_meta)
                             .filter(key => key !== 'display_name')
                             .find(key => {
-                                const block_meta_strings = block_meta[key]
+                                const meta_value = block_meta[key];
+                                if (typeof meta_value !== 'string') return false;
+                                const block_meta_strings = meta_value
                                     .toUpperCase()
                                     .replace(/[^\w\s]/gi, '')
                                     .split(' ');
