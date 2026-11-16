@@ -254,27 +254,24 @@ export default class ToolboxStore {
 
     getAllCategories = (): ChildNode[] => {
         const categories: ChildNode[] = [];
-        Array.from((this.toolbox_dom as HTMLElement).childNodes).forEach((category: ChildNode) => {
-            categories.push(category);
-            if (this.hasSubCategory((category as HTMLElement).children)) {
-                Array.from((category as HTMLElement).children).forEach(subCategory => {
-                    categories.push(subCategory);
-                });
-            }
-        });
+        const toolbox_children = Array.from(this.toolbox_dom?.children ?? []);
+        toolbox_children
+            .filter(category => category.tagName.toUpperCase() === 'CATEGORY')
+            .forEach(category => {
+                categories.push(category);
+                const sub_categories = Array.from(category.children).filter(
+                    child => child.tagName.toUpperCase() === 'CATEGORY'
+                );
+                categories.push(...sub_categories);
+            });
         return categories;
     };
 
-    hasSubCategory = (category: HTMLElement[]) => {
-        const subCategory = Object.keys(category).filter(key => {
-            if (category[Number(key)].tagName.toUpperCase() === 'CATEGORY') {
-                return category[Number(key)];
-            }
-        });
-        if (subCategory.length) {
-            return true;
-        }
-        return false;
+    hasSubCategory = (category: HTMLCollection | HTMLElement[] | undefined | null) => {
+        if (!category) return false;
+        return Array.from(category).some(
+            child => child?.tagName?.toUpperCase() === 'CATEGORY'
+        );
     };
 
     onSearch = (values: any) => {
@@ -356,11 +353,22 @@ export default class ToolboxStore {
 
         const pushBlockWithPriority = (priority: string) => {
             block_contents.forEach(block_content => {
-                const block_type = block_content.getAttribute('type');
+                const block_type = block_content.getAttribute('type') || '';
+                if (!block_type) return;
+
                 const block = window.Blockly.Blocks[block_type];
-                const block_meta = block.meta instanceof Function && block.meta();
-                const block_definitions = block.definition instanceof Function && block.definition();
-                const block_name = block_meta.display_name;
+                // Standard Blockly blocks do not necessarily expose Deriv's custom
+                // meta() and definition() helpers. Search must still include them.
+                if (!block) return;
+
+                const block_meta =
+                    typeof block.meta === 'function' ? block.meta() || {} : {};
+                const block_definitions =
+                    typeof block.definition === 'function' ? block.definition() || {} : {};
+                const block_name =
+                    typeof block_meta.display_name === 'string' && block_meta.display_name.trim()
+                        ? block_meta.display_name
+                        : block_type;
                 const block_type_terms = block_type.toUpperCase().split('_');
                 const block_name_terms = block_name.toUpperCase().split(' ');
                 const definition_key_to_search = /^((message)|(tooltip)|(category))/;
@@ -400,7 +408,8 @@ export default class ToolboxStore {
 
                             if (
                                 definition_key_to_search.test(key) &&
-                                search_words.some(word => definition.includes(word))
+                                typeof definition === 'string' &&
+                                search_words.some(word => definition.toUpperCase().includes(word))
                             ) {
                                 pushIfNotExists(flyout_content, block_content);
                             }
